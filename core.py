@@ -1,6 +1,8 @@
 """Persistence and state machine for private, independently ordered blind reviews."""
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 import hashlib
 import json
 import secrets
@@ -42,10 +44,15 @@ class Store:
               submitted INTEGER NOT NULL, PRIMARY KEY(round_id, user_id));
             ''')
 
+    @contextmanager
     def connect(self):
         db = sqlite3.connect(self.path, timeout=15)
         db.row_factory = sqlite3.Row
-        return db
+        try:
+            with db:
+                yield db
+        finally:
+            db.close()
 
     def create(self, title, owner, group_id, platform, stream_id, parent=None):
         title = title.strip()
