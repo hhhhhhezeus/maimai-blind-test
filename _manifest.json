@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "id": "github.hhhhhhezeus.maimai-blind-test",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "麦麦盲测局",
   "description": "群聊发起盲测，通过私聊个人入口独立评测文字、图片和短音频，揭晓身份与真实反馈，并支持关联复测。",
   "author": {"name": "hhhhhhezeus", "url": "https://github.com/hhhhhhezeus"},
