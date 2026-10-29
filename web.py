@@ -67,7 +67,16 @@ def run(store, host, port):
                 size = int(self.headers.get('Content-Length', '0'))
                 if size < 1 or size > MAX_BODY:
                     raise BlindError('请求过大或为空。')
+                store.auth(token)
                 obj = json.loads(self.rfile.read(size))
+                if not isinstance(obj, dict):
+                    raise BlindError('请求内容必须是 JSON 对象。')
+                for field in ('identity', 'kind', 'text', 'mime', 'data'):
+                    if field in obj and not isinstance(obj[field], str):
+                        raise BlindError('请求字段类型无效。')
+                for field in ('choices', 'comments'):
+                    if field in obj and not isinstance(obj[field], dict):
+                        raise BlindError('评测内容必须是 JSON 对象。')
                 path = urlsplit(self.path).path
                 if path == '/api/add':
                     data = base64.b64decode(obj.get('data', ''), validate=True)

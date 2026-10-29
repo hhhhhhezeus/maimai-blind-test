@@ -28,6 +28,10 @@ class BlindTestFlow(unittest.TestCase):
             store.reveal(owner)
             result = store.results(code)
             self.assertEqual(result['count'], 1)
+            with self.assertRaises(core.BlindError):
+                store.create('跨平台', 'owner', 'group', 'other', 'stream', parent=code)
+            followup = store.create('合法复测', 'owner', 'group', 'qq', 'stream', parent=code)
+            self.assertTrue(followup)
             self.assertEqual(result['feedback'][selected], ['反馈'])
             self.assertTrue(all('identity' in item for item in store.view(reviewer)['items']))
 

@@ -61,7 +61,7 @@ class Store:
         with self.connect() as db:
             if parent:
                 previous = db.execute('SELECT * FROM rounds WHERE id=?', (parent,)).fetchone()
-                if not previous or previous['owner'] != owner or previous['group_id'] != group_id or previous['state'] != 'revealed':
+                if not previous or previous['owner'] != owner or previous['group_id'] != group_id or previous['platform'] != platform or previous['state'] != 'revealed':
                     raise BlindError('只能关联本群由你主持且已经揭晓的活动。')
             code = secrets.token_hex(4).upper()
             db.execute('INSERT INTO rounds VALUES(?,?,?,?,?,?,?,?,?)',
