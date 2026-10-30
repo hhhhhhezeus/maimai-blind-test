@@ -3,7 +3,9 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
-from urllib.request import urlopen
+import json
+from urllib.request import urlopen, Request
+from urllib.error import HTTPError
 from maibot_sdk.context import PluginContext, PluginPaths
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,6 +34,27 @@ class PluginTests(unittest.IsolatedAsyncioTestCase):
                 with urlopen(f'http://127.0.0.1:{port}/', timeout=3) as response:
                     self.assertEqual(response.status, 200)
                     self.assertIn('text/html', response.headers['Content-Type'])
+                code = plugin.store.create('test', 'owner', 'group', 'qq', 'stream')
+                token = plugin.store.issue(code, 'owner', 'owner', 'group', 'qq')
+                for payload in ([], None, {'choices': []}, {'identity': 123}):
+                    request = Request(f'http://127.0.0.1:{port}/api/vote',
+                        data=json.dumps(payload).encode(),
+                        headers={'Authorization': 'Bearer '+token, 'Content-Type': 'application/json'})
+                    with self.assertRaises(HTTPError) as caught:
+                        urlopen(request, timeout=3)
+                    self.assertEqual(caught.exception.code, 400)
+                    caught.exception.close()
+                plugin.store.add(token, '原作者', 'text', text='原内容')
+                item = plugin.store.view(token)['items'][0]['id']
+                for route, payload in [('edit', {'item_id': item, 'identity': '新作者', 'text': '新内容'}), ('remove', {'item_id': item})]:
+                    request = Request(f'http://127.0.0.1:{port}/api/{route}', data=json.dumps(payload).encode(), headers={'Authorization': 'Bearer '+token, 'Content-Type': 'application/json'})
+                    with urlopen(request, timeout=3) as response:
+                        self.assertTrue(json.load(response)['ok'])
+                self.assertEqual(plugin.store.view(token)['items'], [])
+                await plugin.command(stream_id='group-stream', user_id='member', group_id='group', platform='qq', matched_groups={'args': '状态 '+code})
+                self.assertIn('准备中', calls[-1]['args']['text'])
+                self.assertIn('作品 0 件', calls[-1]['args']['text'])
+                calls.clear()
                 await plugin.private('qq', 'user', 'hello')
                 self.assertEqual([c['capability'] for c in calls], ['chat.open_session', 'send.text'])
                 self.assertEqual(calls[-1]['args']['stream_id'], 'private-stream')

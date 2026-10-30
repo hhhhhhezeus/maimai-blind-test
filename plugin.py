@@ -101,6 +101,12 @@ class BlindTestPlugin(MaiBotPlugin):
                 token = self.store.issue(code, role, user_id, group_id, platform)
                 await self.private(platform, user_id, '🎭 你的盲测'+('主持' if role == 'owner' else '评测')+'入口（请勿转发）\n'+self.link(token))
                 return await self.reply(stream_id, '🎭 请查看麦麦私聊中的个人入口。')
+            if action == '状态':
+                if not rest:
+                    raise BlindError('用法：/盲测 状态 活动编号')
+                state = self.store.status(rest.upper(), group_id, platform)
+                label = {'draft': '准备中', 'open': '评测中', 'revealed': '已揭晓'}[state['state']]
+                return await self.reply(stream_id, f"🎭 {state['title']} · {label}\n活动编号：{state['id']}｜作品 {state['items']} 件｜已提交 {state['votes']} 份")
             if action == '结果':
                 code = rest.upper()
                 with self.store.connect() as db:
@@ -115,7 +121,7 @@ class BlindTestPlugin(MaiBotPlugin):
                     lines.append(f"{name}：差不多 {result['counts'][k]['equal']}｜无法判断 {result['counts'][k]['unknown']}")
                 lines.append('个人链接可查看匿名文字反馈。')
                 return await self.reply(stream_id, '\n'.join(lines))
-            return await self.reply(stream_id, '🎭 麦麦盲测局\n/盲测 创建 主题\n/盲测 管理 编号\n/盲测 参加 编号\n/盲测 结果 编号\n/盲测 复测 原编号 新主题\n作品与评测通过私聊入口完成。')
+            return await self.reply(stream_id, '🎭 麦麦盲测局\n/盲测 创建 主题\n/盲测 管理 编号\n/盲测 参加 编号\n/盲测 结果 编号\n/盲测 状态 编号\n/盲测 复测 原编号 新主题\n作品与评测通过私聊入口完成。')
         except BlindError as e:
             return await self.reply(stream_id, '🎭 '+str(e))
         except Exception:

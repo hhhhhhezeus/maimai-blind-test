@@ -28,8 +28,45 @@ class BlindTestFlow(unittest.TestCase):
             store.reveal(owner)
             result = store.results(code)
             self.assertEqual(result['count'], 1)
+            with self.assertRaises(core.BlindError):
+                store.create('跨平台', 'owner', 'group', 'other', 'stream', parent=code)
+            followup = store.create('合法复测', 'owner', 'group', 'qq', 'stream', parent=code)
+            self.assertTrue(followup)
             self.assertEqual(result['feedback'][selected], ['反馈'])
             self.assertTrue(all('identity' in item for item in store.view(reviewer)['items']))
+
+    def test_draft_edit_remove_and_started_lock(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = core.Store(pathlib.Path(directory))
+            code = store.create('test', 'owner', 'g', 'qq', 's')
+            owner = store.issue(code, 'owner', 'owner', 'g', 'qq')
+            for n in range(3): store.add(owner, f'作者{n}', 'text', text=f'内容{n}')
+            items = store.view(owner)['items']
+            store.edit(owner, items[0]['id'], '新作者', '新内容')
+            self.assertEqual(store.view(owner)['items'][0]['text_value'], '新内容')
+            other = store.create('other', 'owner', 'g', 'qq', 's')
+            other_owner = store.issue(other, 'owner', 'owner', 'g', 'qq')
+            with self.assertRaises(core.BlindError): store.remove(other_owner, items[0]['id'])
+            store.remove(owner, items[-1]['id'])
+            self.assertEqual(len(store.view(owner)['items']), 2)
+            store.start(owner)
+            reviewer = store.issue(code, 'reviewer', 'user', 'g', 'qq')
+            for token in (owner, reviewer):
+                with self.assertRaises(core.BlindError): store.edit(token, items[0]['id'], 'bad', 'bad')
+                with self.assertRaises(core.BlindError): store.remove(token, items[0]['id'])
+            self.assertEqual(store.view(owner)['items'][0]['identity'], '新作者')
+
+    def test_status_scope_and_m4a_alias(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = core.Store(pathlib.Path(directory))
+            code = store.create('主题', 'owner', 'g', 'qq', 'stream')
+            token = store.issue(code, 'owner', 'owner', 'g', 'qq')
+            store.add(token, '作者', 'audio', mime='audio/x-m4a', blob=b'test')
+            item = store.view(token)['items'][0]
+            self.assertEqual(store.media(token, item['id']), ('audio/mp4', b'test'))
+            self.assertEqual(store.status(code, 'g', 'qq'), {'id': code, 'title': '主题', 'state': 'draft', 'items': 1, 'votes': 0})
+            for group, platform in [('other', 'qq'), ('g', 'other')]:
+                with self.assertRaises(core.BlindError): store.status(code, group, platform)
 
 if __name__ == '__main__':
     unittest.main()
