@@ -35,5 +35,26 @@ class BlindTestFlow(unittest.TestCase):
             self.assertEqual(result['feedback'][selected], ['反馈'])
             self.assertTrue(all('identity' in item for item in store.view(reviewer)['items']))
 
+    def test_draft_edit_remove_and_started_lock(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = core.Store(pathlib.Path(directory))
+            code = store.create('test', 'owner', 'g', 'qq', 's')
+            owner = store.issue(code, 'owner', 'owner', 'g', 'qq')
+            for n in range(3): store.add(owner, f'作者{n}', 'text', text=f'内容{n}')
+            items = store.view(owner)['items']
+            store.edit(owner, items[0]['id'], '新作者', '新内容')
+            self.assertEqual(store.view(owner)['items'][0]['text_value'], '新内容')
+            other = store.create('other', 'owner', 'g', 'qq', 's')
+            other_owner = store.issue(other, 'owner', 'owner', 'g', 'qq')
+            with self.assertRaises(core.BlindError): store.remove(other_owner, items[0]['id'])
+            store.remove(owner, items[-1]['id'])
+            self.assertEqual(len(store.view(owner)['items']), 2)
+            store.start(owner)
+            reviewer = store.issue(code, 'reviewer', 'user', 'g', 'qq')
+            for token in (owner, reviewer):
+                with self.assertRaises(core.BlindError): store.edit(token, items[0]['id'], 'bad', 'bad')
+                with self.assertRaises(core.BlindError): store.remove(token, items[0]['id'])
+            self.assertEqual(store.view(owner)['items'][0]['identity'], '新作者')
+
 if __name__ == '__main__':
     unittest.main()

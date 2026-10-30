@@ -44,6 +44,13 @@ class PluginTests(unittest.IsolatedAsyncioTestCase):
                         urlopen(request, timeout=3)
                     self.assertEqual(caught.exception.code, 400)
                     caught.exception.close()
+                plugin.store.add(token, '原作者', 'text', text='原内容')
+                item = plugin.store.view(token)['items'][0]['id']
+                for route, payload in [('edit', {'item_id': item, 'identity': '新作者', 'text': '新内容'}), ('remove', {'item_id': item})]:
+                    request = Request(f'http://127.0.0.1:{port}/api/{route}', data=json.dumps(payload).encode(), headers={'Authorization': 'Bearer '+token, 'Content-Type': 'application/json'})
+                    with urlopen(request, timeout=3) as response:
+                        self.assertTrue(json.load(response)['ok'])
+                self.assertEqual(plugin.store.view(token)['items'], [])
                 await plugin.private('qq', 'user', 'hello')
                 self.assertEqual([c['capability'] for c in calls], ['chat.open_session', 'send.text'])
                 self.assertEqual(calls[-1]['args']['stream_id'], 'private-stream')

@@ -122,6 +122,37 @@ class Store:
                 raise BlindError('投稿已关闭或达到 8 个作品。')
             db.execute('INSERT INTO items VALUES(?,?,?,?,?,?,?,?)', (secrets.token_hex(16), a['round_id'], identity, kind, text, mime, blob, time.time_ns()))
 
+    def edit(self, token, item_id, identity, text=None):
+        """Edit metadata/text in draft; retain media bytes and item ordering."""
+        a = self.auth(token)
+        identity = identity.strip()
+        if not identity or len(identity) > 200:
+            raise BlindError('揭晓信息须为 1–200 字。')
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            state = db.execute('SELECT state FROM rounds WHERE id=?', (a['round_id'],)).fetchone()
+            if a['role'] != 'owner' or not state or state[0] != 'draft':
+                raise BlindError('只有主持人可在准备阶段编辑作品。')
+            item = db.execute('SELECT kind FROM items WHERE id=? AND round_id=?', (item_id, a['round_id'])).fetchone()
+            if not item:
+                raise BlindError('未找到本场作品。')
+            if item['kind'] == 'text':
+                if not isinstance(text, str) or not text.strip() or len(text) > 6000:
+                    raise BlindError('文字作品须为 1–6000 字。')
+                db.execute('UPDATE items SET identity=?,text_value=? WHERE id=?', (identity, text, item_id))
+            else:
+                db.execute('UPDATE items SET identity=? WHERE id=?', (identity, item_id))
+
+    def remove(self, token, item_id):
+        a = self.auth(token)
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            state = db.execute('SELECT state FROM rounds WHERE id=?', (a['round_id'],)).fetchone()
+            if a['role'] != 'owner' or not state or state[0] != 'draft':
+                raise BlindError('只有主持人可在准备阶段撤回作品。')
+            if db.execute('DELETE FROM items WHERE id=? AND round_id=?', (item_id, a['round_id'])).rowcount != 1:
+                raise BlindError('未找到本场作品。')
+
     def start(self, token):
         a = self.auth(token)
         with self.connect() as db:
