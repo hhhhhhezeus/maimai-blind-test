@@ -56,5 +56,17 @@ class BlindTestFlow(unittest.TestCase):
                 with self.assertRaises(core.BlindError): store.remove(token, items[0]['id'])
             self.assertEqual(store.view(owner)['items'][0]['identity'], '新作者')
 
+    def test_status_scope_and_m4a_alias(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = core.Store(pathlib.Path(directory))
+            code = store.create('主题', 'owner', 'g', 'qq', 'stream')
+            token = store.issue(code, 'owner', 'owner', 'g', 'qq')
+            store.add(token, '作者', 'audio', mime='audio/x-m4a', blob=b'test')
+            item = store.view(token)['items'][0]
+            self.assertEqual(store.media(token, item['id']), ('audio/mp4', b'test'))
+            self.assertEqual(store.status(code, 'g', 'qq'), {'id': code, 'title': '主题', 'state': 'draft', 'items': 1, 'votes': 0})
+            for group, platform in [('other', 'qq'), ('g', 'other')]:
+                with self.assertRaises(core.BlindError): store.status(code, group, platform)
+
 if __name__ == '__main__':
     unittest.main()

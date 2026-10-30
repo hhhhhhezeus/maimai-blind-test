@@ -51,6 +51,10 @@ class PluginTests(unittest.IsolatedAsyncioTestCase):
                     with urlopen(request, timeout=3) as response:
                         self.assertTrue(json.load(response)['ok'])
                 self.assertEqual(plugin.store.view(token)['items'], [])
+                await plugin.command(stream_id='group-stream', user_id='member', group_id='group', platform='qq', matched_groups={'args': '状态 '+code})
+                self.assertIn('准备中', calls[-1]['args']['text'])
+                self.assertIn('作品 0 件', calls[-1]['args']['text'])
+                calls.clear()
                 await plugin.private('qq', 'user', 'hello')
                 self.assertEqual([c['capability'] for c in calls], ['chat.open_session', 'send.text'])
                 self.assertEqual(calls[-1]['args']['stream_id'], 'private-stream')

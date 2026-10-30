@@ -108,6 +108,8 @@ class Store:
                 raise BlindError('文字作品须为 1–6000 字。')
             mime, blob = '', b''
         elif kind in ('image', 'audio'):
+            if kind == 'audio' and mime in ('audio/x-m4a', 'audio/m4a'):
+                mime = 'audio/mp4'
             allowed = {'image': {'image/jpeg', 'image/png', 'image/webp'}, 'audio': {'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp4', 'audio/webm'}}
             if mime not in allowed[kind] or not blob or len(blob) > 15 * 1024 * 1024:
                 raise BlindError('文件类型不支持或超过 15 MB。')
@@ -220,6 +222,16 @@ class Store:
             if not r or r[0] != 'open':
                 raise BlindError('只有进行中的活动可以揭晓。')
             db.execute("UPDATE rounds SET state='revealed' WHERE id=?", (a['round_id'],))
+
+    def status(self, code, group, platform):
+        """Group-scoped progress; never returns authors or choices."""
+        with self.connect() as db:
+            row = db.execute('SELECT id,title,state,group_id,platform FROM rounds WHERE id=?', (code,)).fetchone()
+            if not row or row['group_id'] != group or row['platform'] != platform:
+                raise BlindError('未找到本群活动。')
+            count = db.execute('SELECT COUNT(*) FROM items WHERE round_id=?', (code,)).fetchone()[0]
+            votes = db.execute('SELECT COUNT(*) FROM ballots WHERE round_id=?', (code,)).fetchone()[0]
+            return {'id': row['id'], 'title': row['title'], 'state': row['state'], 'items': count, 'votes': votes}
 
     def results(self, code):
         with self.connect() as db:
